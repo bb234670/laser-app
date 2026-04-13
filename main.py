@@ -25,7 +25,7 @@ def read_root():
             <form action="/analyze" enctype="multipart/form-data" method="post" id="uploadForm">
                 
                 <p class="instructions"><strong>1. Select your video:</strong></p>
-                <input id="videoFile" name="file" type="file" accept="video/mp4" style="margin-bottom: 10px;"><br>
+                <input id="videoFile" name="file" type="file" accept="video/mp4,video/quicktime" style="margin-bottom: 10px;"><br>
                 
                 <p class="instructions" id="step2" style="display:none;"><strong>2. Tap the 4 corners of the target paper (Top-Left, Top-Right, Bottom-Left, Bottom-Right):</strong></p>
                 <canvas id="videoFrame"></canvas>
@@ -46,28 +46,32 @@ def read_root():
                 
                 let points = [];
 
-                // 1. When a video is selected, extract the first frame
                 fileInput.addEventListener('change', function(e) {
                     const file = e.target.files[0];
                     if (!file) return;
 
                     const video = document.createElement('video');
-                    video.src = URL.createObjectURL(file);
                     
-                    // Tell the video to load its metadata and first frame
+                    // --- iOS SAFARI FIXES ---
+                    video.muted = true;
+                    video.playsInline = true;
+                    video.preload = "auto";
+                    
+                    video.src = URL.createObjectURL(file);
+                    video.load(); // Force iOS to load it into memory
+                    // ------------------------
+                    
                     video.addEventListener('loadeddata', function() {
-                        video.currentTime = 0; 
+                        // Use 0.1 instead of 0. iPhones sometimes return a completely black frame at exactly 0.0 seconds!
+                        video.currentTime = 0.1; 
                     });
 
                     video.addEventListener('seeked', function() {
-                        // Match canvas internal resolution to video's true resolution
                         canvas.width = video.videoWidth;
                         canvas.height = video.videoHeight;
                         
-                        // Draw the frame onto the canvas
                         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                         
-                        // Reset everything
                         points = [];
                         ptsInput.value = "";
                         submitBtn.disabled = true;
@@ -76,11 +80,9 @@ def read_root():
                     });
                 });
 
-                // 2. Listen for taps on the canvas
                 canvas.addEventListener('click', function(e) {
-                    if (points.length >= 4) return; // Stop after 4 taps
+                    if (points.length >= 4) return; 
 
-                    // Calculate correct coordinates even if the canvas is scaled down on mobile
                     const rect = canvas.getBoundingClientRect();
                     const scaleX = canvas.width / rect.width;
                     const scaleY = canvas.height / rect.height;
@@ -90,18 +92,16 @@ def read_root():
 
                     points.push([x, y]);
 
-                    // Draw a red dot where the user tapped
                     ctx.beginPath();
                     ctx.arc(x, y, 15, 0, 2 * Math.PI);
                     ctx.fillStyle = 'red';
                     ctx.fill();
 
-                    // If 4 points are tapped, auto-fill the hidden input and enable the button
                     if (points.length === 4) {
                         ptsInput.value = JSON.stringify(points);
                         submitBtn.disabled = false;
                         submitBtn.value = "Target Set! Analyze Video";
-                        submitBtn.style.backgroundColor = "#28a745"; // turn green
+                        submitBtn.style.backgroundColor = "#28a745"; 
                     }
                 });
             </script>
