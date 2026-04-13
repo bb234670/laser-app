@@ -1,0 +1,85 @@
+import cv2
+import numpy as np
+import os
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.responses import FileResponse
+
+app = FastAPI()
+
+def detect_red(frame):
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    lower1 = np.array([0, 120, 200])
+    upper1 = np.array([10, 255, 255])
+    lower2 = np.array([170, 120, 200])
+    upper2 = np.array([180, 255, 255])
+    mask = cv2.inRange(hsv, lower1, upper1) + cv2.inRange(hsv, lower2, upper2)
+    return mask
+
+def cluster_hits(points, radius=20):
+    clusters = []
+    for p in points:
+        if not any(np.linalg.norm(np.array(p)-np.array(c)) < radius for c in clusters):
+            clusters.append(p)
+    return clusters
+
+def process_video(path, src_pts):
+    cap = cv2.VideoCapture(path)
+    hits = []
+    frame_count = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame_count += 1
+        if frame_count % 2 != 0:
+            continue
+
+        mask = detect_red(frame)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for c in contours:
+            area = cv2.contourArea(c)
+            if 5 < area < 200:
+                x, y, w, h = cv2.boundingRect(c)
+                cx, cy = x + w//2, y + h//2
+                hits.append([cx, cy])
+
+    cap.release()
+    hits = cluster_hits(hits)
+
+    dst_pts = np.float32([[0,0],[500,0],[0,500],[500,500]])
+    M = cv2.getPerspectiveTransform(np.float32(src_pts), dst_pts)
+
+    mapped_hits = []
+    for h in hits:
+        pt = np.array([[h]], dtype="float32")
+        mapped = cv2.perspectiveTransform(pt, M)
+        mapped_hits.append((int(mapped[0][0][0]), int(mapped[0][0][1])))
+
+    return mapped_hits
+
+def draw_map(hits):
+    img = np.ones((500,500,3), dtype=np.uint8) * 255
+    for (x,y) in hits:
+        cv2.circle(img, (x,y), 6, (0,0,255), -1)
+    cv2.imwrite("output.png", img)
+
+@app.post("/analyze")
+async def analyze(file: UploadFile = File(...), pts: str = Form(...)):
+    contents = await file.read()
+    with open("input.mp4", "wb") as f:
+        f.write(contents)
+
+    src_pts = np.array(eval(pts), dtype="float32")
+    hits = process_video("input.mp4", src_pts)
+    draw_map(hits)
+
+    score = f"{min(len(hits),40)}/40"
+
+    return {"score": score, "hits": hits, "image": "/download"}
+
+@app.get("/download")
+def download():
+    return FileResponse("output.png")
