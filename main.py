@@ -2,12 +2,31 @@ import cv2
 import numpy as np
 import os
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 app = FastAPI()
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def read_root():
-    return {"message": "Laser app API is running? Send a POST request to /analyze to process a video."}
+    return """
+    <html>
+        <head>
+            <title>Laser Hit Analyzer</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="font-family: sans-serif; padding: 20px;">
+            <h2>Upload Laser Video</h2>
+            <form action="/analyze" enctype="multipart/form-data" method="post">
+                <label><strong>1. Select Video:</strong></label><br>
+                <input name="file" type="file" accept="video/mp4" style="margin-top: 8px; margin-bottom: 20px;"><br>
+                
+                <label><strong>2. Target Coordinates (src_pts):</strong></label><br>
+                <input name="pts" type="text" value="[[100,100], [400,100], [100,400], [400,400]]" style="width: 100%; margin-top: 8px; margin-bottom: 20px; padding: 8px;"><br>
+                
+                <input type="submit" value="Analyze Video" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px;">
+            </form>
+        </body>
+    </html>
+    """
 
 def detect_red(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
