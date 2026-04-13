@@ -180,7 +180,7 @@ async def analyze(file: UploadFile = File(...), pts: str = Form(...)):
         f.write(contents)
 
     # 2. Load your custom diagram to get its exact dimensions
-    bg_path = "target.jpg"
+    bg_path = "Target.jpg"
     bg_img = cv2.imread(bg_path)
     if bg_img is None:
         return "<h3>Error: target.png not found! Did you upload it to Cloud Shell?</h3>"
