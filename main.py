@@ -88,20 +88,38 @@ def draw_map(hits):
         cv2.circle(img, (x,y), 6, (0,0,255), -1)
     cv2.imwrite("output.png", img)
 
-@app.post("/analyze")
+@app.post("/analyze", response_class=HTMLResponse)
 async def analyze(file: UploadFile = File(...), pts: str = Form(...)):
+    # 1. Save the video
     contents = await file.read()
     with open("input.mp4", "wb") as f:
         f.write(contents)
 
+    # 2. Process the video
     src_pts = np.array(eval(pts), dtype="float32")
     hits = process_video("input.mp4", src_pts)
+    
+    # 3. Draw and save the output.png map
     draw_map(hits)
 
+    # 4. Calculate score
     score = f"{min(len(hits),40)}/40"
 
-    return {"score": score, "hits": hits, "image": "/download"}
-
+    # 5. Return a visual webpage showing the result
+    return f"""
+    <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="font-family: sans-serif; padding: 20px; text-align: center;">
+            <h2>Analysis Complete!</h2>
+            <h3>Score: {score}</h3>
+            <img src="/download" style="max-width: 100%; border: 2px solid black; margin-top: 10px;">
+            <br><br>
+            <a href="/" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Analyze Another Video</a>
+        </body>
+    </html>
+    """
 @app.get("/download")
 def download():
     return FileResponse("output.png")
