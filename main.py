@@ -174,43 +174,60 @@ def draw_map(hits, bg_path):
 
 @app.post("/analyze", response_class=HTMLResponse)
 async def analyze(file: UploadFile = File(...), pts: str = Form(...)):
-    # 1. Save the uploaded video
-    contents = await file.read()
-    with open("input.mp4", "wb") as f:
-        f.write(contents)
+    try:
+        # 1. Save the uploaded video
+        contents = await file.read()
+        with open("input.mp4", "wb") as f:
+            f.write(contents)
 
-    # 2. Load your custom diagram to get its exact dimensions
-    bg_path = "Target.jpg"
-    bg_img = cv2.imread(bg_path)
-    if bg_img is None:
-        return "<h3>Error: target.png not found! Did you upload it to Cloud Shell?</h3>"
-    h, w, _ = bg_img.shape
+        # 2. Load your custom diagram 
+        bg_path = "Target.jpg"
+        bg_img = cv2.imread(bg_path)
+        if bg_img is None:
+            import os
+            return f"<h3>Error: Could not read {bg_path}.</h3><p>Files found: {os.listdir('.')}</p>"
+        h, w, _ = bg_img.shape
 
-    # 3. Process the video using those dimensions
-    src_pts = np.array(eval(pts), dtype="float32")
-    hits = process_video("input.mp4", src_pts, w, h)
+        # 3. Process the video using those dimensions
+        src_pts = np.array(eval(pts), dtype="float32")
+        hits = process_video("input.mp4", src_pts, w, h)
+        
+        # 4. Draw on the background image
+        draw_map(hits, bg_path)
+
+        # 5. Calculate score
+        score = f"{min(len(hits),40)}/40"
+
+        # 6. Return a visual webpage showing the result
+        return f"""
+        <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+            </head>
+            <body style="font-family: sans-serif; padding: 20px; text-align: center;">
+                <h2>Analysis Complete!</h2>
+                <h3>Score: {score}</h3>
+                <img src="/download" style="max-width: 100%; border: 2px solid black; margin-top: 10px;">
+                <br><br>
+                <a href="/" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Analyze Another Video</a>
+            </body>
+        </html>
+        """
     
-    # 4. Draw on the background image
-    draw_map(hits, bg_path)
-
-    # 5. Calculate score
-    score = f"{min(len(hits),40)}/40"
-
-    # 6. Return a visual webpage showing the result
-    return f"""
-    <html>
-        <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-        </head>
-        <body style="font-family: sans-serif; padding: 20px; text-align: center;">
-            <h2>Analysis Complete!</h2>
-            <h3>Score: {score}</h3>
-            <img src="/download" style="max-width: 100%; border: 2px solid black; margin-top: 10px;">
-            <br><br>
-            <a href="/" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Analyze Another Video</a>
-        </body>
-    </html>
-    """
+    # IF ANYTHING FAILS, IT WILL CATCH THE ERROR AND PRINT IT HERE
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        return f"""
+        <html>
+            <head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+            <body style="font-family: sans-serif; padding: 20px;">
+                <h2 style="color:red;">Python Crashed!</h2>
+                <p>Here is the exact reason why:</p>
+                <pre style="background:#eee; padding:10px; overflow-x:auto; font-size:12px;">{error_trace}</pre>
+            </body>
+        </html>
+        """
 @app.get("/download")
 def download():
     return FileResponse("output.png")
