@@ -5,6 +5,9 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import FileResponse
 
 app = FastAPI()
+@app.get("/")
+def read_root():
+    return {"message": "Laser app API is running? Send a POST request to /analyze to process a video."}
 
 def detect_red(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
