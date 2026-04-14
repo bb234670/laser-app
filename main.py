@@ -165,11 +165,13 @@ def process_video(path, src_pts, w, h):
     return mapped_hits
 
 def draw_map(hits, bg_path):
-    # UPDATED: Load your custom diagram
+    # Load your custom Target.jpg diagram
     img = cv2.imread(bg_path)
+    
     for (x,y) in hits:
-        # Draw red circles (adjust the '6' to make dots bigger/smaller)
+        # Draw red circles for the hits
         cv2.circle(img, (x,y), 6, (0,0,255), -1) 
+        
     cv2.imwrite("output.png", img)
 
 @app.post("/analyze", response_class=HTMLResponse)
